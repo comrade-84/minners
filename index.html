@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Points Mining Game</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #141414;
+      color: #ffffff;
+      font-family: 'Arial', sans-serif;
+      padding-bottom: 70px; /* Space for fixed navbar */
+    }
+    .container {
+      max-width: 600px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    .mine-btn {
+      background-color: #00ffcc;
+      color: #141414;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1.2rem;
+      transition: all 0.3s;
+      box-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc;
+      position: relative;
+    }
+    .mine-btn:hover {
+      box-shadow: 0 0 20px #00ffcc, 0 0 30px #00ffcc;
+    }
+    .mine-btn:disabled {
+      background-color: #555;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+    .mine-btn .spinner-border {
+      width: 1.2rem;
+      height: 1.2rem;
+      border-color: #141414;
+      border-right-color: transparent;
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: none;
+    }
+    .mine-btn.loading .spinner-border {
+      display: inline-block;
+    }
+    .mine-btn.loading .button-text {
+      padding-left: 1.5rem; /* Space for spinner */
+    }
+    .points, .timer {
+      font-size: 1.5rem;
+      margin: 2rem 0;
+    }
+    .leaderboard {
+      background-color: #1c1c1c;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .neon-text {
+      color: #00ffcc;
+      text-shadow: 0 0 10px #00ffcc;
+    }
+    .form-section {
+      background-color: #1c1c1c;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .toggle-link {
+      color: #00ffcc;
+      cursor: pointer;
+    }
+    .error-message, .success-message {
+      font-size: 0.9rem;
+      margin-top: 5px;
+      display: none;
+    }
+    .error-message {
+      color: #ff4d4d;
+    }
+    .success-message {
+      color: #00ffcc;
+    }
+    .navbar {
+      background-color: #1c1c1c;
+      border-top: 1px solid #00ffcc;
+    }
+    .nav-link {
+      color: #ffffff !important;
+      font-size: 0.9rem;
+      transition: all 0.3s;
+    }
+    .nav-link:hover {
+      color: #00ffcc !important;
+    }
+    .nav-link.active {
+      color: #00ffcc !important;
+      box-shadow: 0 0 10px #00ffcc;
+      border-radius: 5px;
+    }
+    .tab-content {
+      min-height: calc(100vh - 70px); /* Ensure content fills screen */
+    }
+  </style>
+</head>
+<body>
+  <div class="container text-center">
+    <!-- Login Form -->
+    <div id="loginSection" class="form-section">
+      <h1 class="neon-text">Login</h1>
+      <form id="loginForm">
+        <div class="mb-3">
+          <input type="email" class="form-control" id="loginEmail" placeholder="Email" required>
+          <div id="login-email-error" class="error-message"></div>
+        </div>
+        <div class="mb-3">
+          <input type="password" class="form-control" id="loginPassword" placeholder="Password" required>
+          <div id="login-password-error" class="error-message"></div>
+        </div>
+        <button type="submit" class="btn mine-btn" id="loginBtn">
+          <span class="spinner-border" role="status"></span>
+          <span class="button-text">Login</span>
+        </button>
+        <div id="login-general-error" class="error-message"></div>
+      </form>
+      <p class="mt-3">No account? <span class="toggle-link" onclick="showSignup()">Sign Up</span></p>
+    </div>
+
+    <!-- Sign-Up Form -->
+    <div id="signupSection" class="form-section d-none">
+      <h1 class="neon-text">Sign Up</h1>
+      <form id="signupForm">
+        <div class="mb-3">
+          <input type="email" class="form-control" id="signupEmail" placeholder="Email" required>
+          <div id="signup-email-error" class="error-message"></div>
+        </div>
+        <div class="mb-3">
+          <input type="password" class="form-control" id="signupPassword" placeholder="Password" required>
+          <div id="signup-password-error" class="error-message"></div>
+        </div>
+        <button type="submit" class="btn mine-btn" id="signupBtn">
+          <span class="spinner-border" role="status"></span>
+          <span class="button-text">Sign Up</span>
+        </button>
+        <div id="signup-general-error" class="error-message"></div>
+        <div id="signup-verification-success" class="success-message"></div>
+      </form>
+      <p class="mt-3">Have an account? <span class="toggle-link" onclick="showLogin()">Login</span></p>
+    </div>
+
+    <!-- Game Section (Tabbed) -->
+    <div id="gameSection" class="d-none">
+      <div class="tab-content">
+        <!-- Profile Tab -->
+        <div class="tab-pane fade show active" id="profileTab">
+          <h1 class="neon-text">Profile</h1>
+          <div class="points">Email: <span id="userEmail"></span></div>
+          <div class="points">Points: <span id="profilePoints">0</span></div>
+          <button class="btn btn-secondary mt-3" onclick="logout()">Logout</button>
+          <h2 class="neon-text mt-5">Leaderboard</h2>
+          <div class="leaderboard">
+            <table class="table table-dark">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Email</th>
+                  <th>Points</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Mine Tab -->
+        <div class="tab-pane fade" id="mineTab">
+          <h1 class="neon-text">Mine Points</h1>
+          <div class="points">Points: <span id="points">0</span></div>
+          <div class="points">Pending Points: <span id="pendingPoints">0</span></div>
+          <button class="mine-btn" id="mineBtn">Start Mining</button>
+          <div class="timer">Status: <span id="timer">Ready to mine!</span></div>
+        </div>
+        <!-- Transfer Tab -->
+        <div class="tab-pane fade" id="transferTab">
+          <h1 class="neon-text">Transfer Points</h1>
+          <p>Enter recipient email and points to transfer.</p>
+          <form id="transferForm">
+            <div class="mb-3">
+              <input type="email" class="form-control" id="transferEmail" placeholder="Recipient Email" required>
+              <div id="transfer-email-error" class="error-message"></div>
+            </div>
+            <div class="mb-3">
+              <input type="number" min="1" class="form-control" id="transferPoints" placeholder="Number of Points" required>
+              <div id="transfer-points-error" class="error-message"></div>
+            </div>
+            <button type="submit" class="btn mine-btn" id="transferBtn">
+              <span class="spinner-border" role="status"></span>
+              <span class="button-text">Transfer</span>
+            </button>
+            <div id="transfer-success" class="success-message"></div>
+            <div id="transfer-general-error" class="error-message"></div>
+          </form>
+        </div>
+        <!-- Recharge Tab -->
+        <div class="tab-pane fade" id="rechargeTab">
+          <h1 class="neon-text">Recharge Points</h1>
+          <p>Select a recharge option.</p>
+          <button class="btn mine-btn mb-2">Recharge 100 Points (Placeholder)</button>
+          <button class="btn mine-btn">Recharge 500 Points (Placeholder)</button>
+          <p class="mt-3 text-muted">Note: Recharge functionality is a placeholder.</p>
+        </div>
+        <!-- Shop Tab -->
+        <div class="tab-pane fade" id="shopTab">
+          <h1 class="neon-text">Shop</h1>
+          <p>Purchase virtual items with your points.</p>
+          <div class="card bg-dark text-white mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Neon Badge</h5>
+              <p class="card-text">Cost: 100 points</p>
+              <button class="btn mine-btn">Buy (Placeholder)</button>
+            </div>
+          </div>
+          <div class="card bg-dark text-white">
+            <div class="card-body">
+              <h5 class="card-title">Star Avatar</h5>
+              <p class="card-text">Cost: 500 points</p>
+              <button class="btn mine-btn">Buy (Placeholder)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fixed Bottom Navbar -->
+  <nav class="navbar fixed-bottom navbar-dark">
+    <div class="container-fluid justify-content-center">
+      <ul class="nav nav-pills w-100 justify-content-around" id="nav-tab" role="tablist">
+        <li class="nav-item">
+          <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profileTab" type="button" role="tab" aria-controls="profile-tab-pane" aria-selected="true"><i class="bi bi-person"></i> Profile</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="mine-tab" data-bs-toggle="tab" data-bs-target="#mineTab" type="button" role="tab" aria-controls="mine-tab-pane" aria-selected="false"><i class="bi bi-gem"></i> Mine</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="transfer-tab" data-bs-toggle="tab" data-bs-target="#transferTab" type="button" role="tab" aria-controls="transfer-tab" aria-selected="false"><i class="bi bi-arrow-left-right"></i> Transfer</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="recharge-tab" data-bs-toggle="tab" data-bs-target="#rechargeTab" type="button" role="tab" aria-controls="recharge-tab" aria-selected="false"><i class="bi bi-battery-charging"></i> Recharge</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="shop-tab" data-bs-toggle="tab" data-bs-target="#shopTab" type="button" role="tab" aria-controls="shop-tab-pane" aria-selected="false"><i class="bi bi-shop"></i> Shop</button>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- App JavaScript -->
+  <script src="script.js"></script>
+  <script type="text/javascript">
+	_NBSettings = {
+		apiKey: 'public_a05d9ae7c6e9c9e968f2d05aaa23a1de'
+	};
+</script>
+<script type="text/javascript" src="https://cdn.neverbounce.com/widget/dist/NeverBounce.js"></script>
+</body>
+</html>
