@@ -1,9 +1,12 @@
-const API_URL = 'https://68484c26ec44b9f349406c8c.mockapi.io/mine/users'; // Replace with your MockAPI.io URL
+const API_URL = 'https://68484c26ec44b9f349406c8c.mockapi.io/mine/users';
+const PAYSTACK_PUBLIC_KEY = 'pk_test_4b6f07b034fb6364157ea394e8dbc4af9465b598'; 
 
 let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 
 const POINTS_PER_CYCLE = 50;
 const MINING_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+const POINTS_PER_DOLLAR = 100;
+const USD_TO_NGN = 1500; // Approx. rate, adjust as needed
 
 // DOM Elements
 const loginSection = document.getElementById('loginSection');
@@ -11,11 +14,13 @@ const signupSection = document.getElementById('signupSection');
 const gameSection = document.getElementById('gameSection');
 const loginForm = document.getElementById('loginForm');
 const signupForm = document.getElementById('signupForm');
+const rechargeForm = document.getElementById('rechargeForm');
 const transferForm = document.getElementById('transferForm');
 const loginEmail = document.getElementById('loginEmail');
 const loginPassword = document.getElementById('loginPassword');
 const signupEmail = document.getElementById('signupEmail');
 const signupPassword = document.getElementById('signupPassword');
+const rechargeAmount = document.getElementById('rechargeAmount');
 const transferEmail = document.getElementById('transferEmail');
 const transferPoints = document.getElementById('transferPoints');
 const loginEmailError = document.getElementById('login-email-error');
@@ -25,12 +30,15 @@ const signupEmailError = document.getElementById('signup-email-error');
 const signupPasswordError = document.getElementById('signup-password-error');
 const signupGeneralError = document.getElementById('signup-general-error');
 const signupVerificationSuccess = document.getElementById('signup-verification-success');
+const rechargeError = document.getElementById('recharge-error');
+const rechargeSuccess = document.getElementById('recharge-success');
 const transferEmailError = document.getElementById('transfer-email-error');
 const transferPointsError = document.getElementById('transfer-points-error');
 const transferSuccess = document.getElementById('transfer-success');
 const transferGeneralError = document.getElementById('transfer-general-error');
 const loginBtn = document.getElementById('loginBtn');
 const signupBtn = document.getElementById('signupBtn');
+const rechargeBtn = document.getElementById('rechargeBtn');
 const transferBtn = document.getElementById('transferBtn');
 const pointsDisplay = document.getElementById('points');
 const profilePoints = document.getElementById('profilePoints');
@@ -84,23 +92,23 @@ function toggleButtonLoading(button, isLoading, defaultText, loadingText) {
   }
 }
 
-// Toggle Forms
+// Toggle Sections
 function showLogin() {
-  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
+  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, rechargeError, rechargeSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
   loginSection.classList.remove('d-none');
   signupSection.classList.add('d-none');
   gameSection.classList.add('d-none');
 }
 
 function showSignup() {
-  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
+  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, rechargeError, rechargeSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
   signupSection.classList.remove('d-none');
   loginSection.classList.add('d-none');
   gameSection.classList.add('d-none');
 }
 
 function showGame() {
-  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
+  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, rechargeError, rechargeSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
   gameSection.classList.remove('d-none');
   loginSection.classList.add('d-none');
   signupSection.classList.add('d-none');
@@ -109,10 +117,9 @@ function showGame() {
   if (currentUser) {
     userEmail.textContent = currentUser.email;
     profilePoints.textContent = currentUser.points;
+    syncPendingPoints();
   }
-  // Ensure Profile tab is active on load
-  document.querySelector('#profile-tab').classList.add('active');
-  document.querySelector('#profileTab').classList.add('show', 'active');
+  document.querySelector('#profile-tab').click();
 }
 
 // Check if user is logged in
@@ -120,95 +127,69 @@ if (currentUser) {
   showGame();
 }
 
-// Verify Email with NeverBounce Widget
-function verifyEmail(emailInput) {
-  const status = emailInput.getAttribute('data-neverbounce-status');
-  console.log('NeverBounce widget status:', status); // Debug
-  return status === 'valid';
-}
-
-// Sign-Up Handler with NeverBounce Widget
+// Sign-Up Handler (Bypassed NeverBounce)
 signupForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   clearErrors(signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess);
-  toggleButtonLoading(signupBtn, true, 'Sign Up', 'Verifying email...');
+  toggleButtonLoading(signupBtn, true, 'Sign Up', 'Signing up...');
 
   const email = signupEmail.value.trim();
   const password = signupPassword.value.trim();
 
   if (!email) {
     showError(signupEmailError, 'Email is required');
-    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
+    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
     return;
   }
   if (!validateEmail(email)) {
     showError(signupEmailError, 'Please enter a valid email');
-    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
+    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
     return;
   }
   if (!password) {
     showError(signupPasswordError, 'Password is required');
-    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
+    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
     return;
   }
   if (!validatePassword(password)) {
     showError(signupPasswordError, 'Password must be at least 6 characters');
-    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
-    return;
-  }
-
-  // Verify email with NeverBounce widget
-  const isEmailValid = verifyEmail(signupEmail);
-  if (!isEmailValid) {
-    showError(signupGeneralError, 'Email is invalid or disposable. Please use a real email.');
-    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
+    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
     return;
   }
 
   try {
-    // Check if email already exists in MockAPI.io
+    // Check if email exists
     const response = await fetch(API_URL);
-    if (!response.ok) {
-      if (response.status === 404) {
-        showError(signupGeneralError, 'API endpoint not found. Please check the MockAPI.io URL.');
-      } else {
-        showError(signupGeneralError, `Network error: ${response.statusText}`);
-      }
-      throw new Error(`Network error fetching users: ${response.status}`);
-    }
+    if (!response.ok) throw new Error('Network error fetching users');
     const users = await response.json();
-    const existingUser = users.find(u => u.email === email);
-    if (existingUser) {
+    const emailExists = users.find(u => u.email === email);
+    if (emailExists) {
       showError(signupGeneralError, 'Email already exists');
-      toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
+      toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
       return;
     }
 
-    // Create new user
+    // Create user
     const newUser = { email, password, points: 0, miningStartTime: 0 };
     const createResponse = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newUser),
     });
-    if (!createResponse.ok) {
-      showError(signupGeneralError, `Failed to create user: ${createResponse.statusText}`);
-      throw new Error('Failed to create user');
-    }
+    if (!createResponse.ok) throw new Error('Failed to create user');
     const user = await createResponse.json();
     currentUser = user;
     localStorage.setItem('currentUser', JSON.stringify(user));
-    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
-    showSuccess(signupVerificationSuccess, 'Email verified! Sign-up successful.');
+    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
+    showSuccess(signupVerificationSuccess, 'Sign-up successful!');
     showGame();
   } catch (error) {
     console.error('Signup error:', error);
-    // Fallback to LocalStorage
     localStorage.setItem('points', 0);
     localStorage.setItem('miningStartTime', 0);
     currentUser = { email, points: 0, miningStartTime: 0 };
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Verifying email...');
+    toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
     showError(signupGeneralError, 'Error signing up. Using local fallback.');
     showGame();
   }
@@ -241,14 +222,7 @@ loginForm.addEventListener('submit', async (e) => {
 
   try {
     const response = await fetch(`${API_URL}?email=${encodeURIComponent(email)}`);
-    if (!response.ok) {
-      if (response.status === 404) {
-        showError(loginGeneralError, 'API endpoint not found. Please check the MockAPI.io URL.');
-      } else {
-        showError(loginGeneralError, `Network error: ${response.statusText}`);
-      }
-      throw new Error(`Network error during login: ${response.status}`);
-    }
+    if (!response.ok) throw new Error('Network error during login');
     const users = await response.json();
     const user = users.find(u => u.email === email && u.password === password);
     if (user) {
@@ -263,10 +237,101 @@ loginForm.addEventListener('submit', async (e) => {
     }
   } catch (error) {
     console.error('Login error:', error);
-    showError(loginGeneralError, 'Error logging in. Check your network and try again.');
+    showError(loginGeneralError, 'Error logging in. Check network.');
     toggleButtonLoading(loginBtn, false, 'Login', 'Logging in...');
   }
 });
+
+// Recharge Handler
+rechargeForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearErrors(rechargeError, rechargeSuccess);
+  toggleButtonLoading(rechargeBtn, true, 'Pay Now', 'Processing...');
+
+  if (!currentUser) {
+    showError(rechargeError, 'Please log in to recharge.');
+    toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+    return;
+  }
+
+  const amountUSD = parseFloat(rechargeAmount.value);
+  if (!amountUSD || amountUSD !== 1) {
+    showError(rechargeError, 'Amount must be $1.');
+    toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+    return;
+  }
+
+  const amountNGN = amountUSD * USD_TO_NGN * 100; // Paystack uses kobo
+  const email = currentUser.email;
+
+  try {
+    const handler = PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY,
+      email: email,
+      amount: amountNGN,
+      currency: 'NGN',
+      ref: `VPMG_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      onClose: () => {
+        showError(rechargeError, 'Payment cancelled.');
+        toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+      },
+      callback: async (response) => {
+        try {
+          // Verify payment (optional for testing)
+          // In production, use server-side verification with sk_test_xxx
+          currentUser.points += amountUSD * POINTS_PER_DOLLAR;
+          const updateResponse = await fetch(`${API_URL}/${currentUser.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentUser),
+          });
+          if (!updateResponse.ok) throw new Error('Failed to update points.');
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          updatePointsAndTimer();
+          showSuccess(rechargeSuccess, `Recharged ${amountUSD * POINTS_PER_DOLLAR} points!`);
+          toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+          rechargeForm.reset();
+        } catch (error) {
+          console.error('Recharge error:', error);
+          showError(rechargeError, 'Error processing payment. Points not credited.');
+          toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+          localStorage.setItem('pendingPoints', JSON.stringify({
+            email: currentUser.email,
+            points: amountUSD * POINTS_PER_DOLLAR,
+            timestamp: Date.now(),
+          }));
+        }
+      },
+    });
+    handler.openIframe();
+  } catch (error) {
+    console.error('Payment init error:', error);
+    showError(rechargeError, 'Error initiating payment. Try again.');
+    toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+  }
+});
+
+// Sync Pending Points
+async function syncPendingPoints() {
+  const pending = JSON.parse(localStorage.getItem('pendingPoints'));
+  if (!pending || !currentUser || pending.email !== currentUser.email) return;
+
+  try {
+    currentUser.points += pending.points;
+    const response = await fetch(`${API_URL}/${currentUser.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentUser),
+    });
+    if (response.ok) {
+      localStorage.removeItem('pendingPoints');
+      updatePointsAndTimer();
+      showSuccess(rechargeSuccess, `Synced ${pending.points} pending points!`);
+    }
+  } catch (error) {
+    console.error('Sync error:', error);
+  }
+}
 
 // Transfer Points Handler
 transferForm.addEventListener('submit', async (e) => {
@@ -310,14 +375,7 @@ transferForm.addEventListener('submit', async (e) => {
 
   try {
     const response = await fetch(API_URL);
-    if (!response.ok) {
-      if (response.status === 404) {
-        showError(transferGeneralError, 'API endpoint not found. Please check the MockAPI.io URL.');
-      } else {
-        showError(transferGeneralError, `Network error: ${response.statusText}`);
-      }
-      throw new Error(`Network error fetching users: ${response.status}`);
-    }
+    if (!response.ok) throw new Error('Network error fetching users');
     const users = await response.json();
     const recipient = users.find(u => u.email === recipientEmail);
     if (!recipient) {
@@ -326,29 +384,21 @@ transferForm.addEventListener('submit', async (e) => {
       return;
     }
 
-    // Update sender
     currentUser.points -= points;
     const senderResponse = await fetch(`${API_URL}/${currentUser.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(currentUser),
     });
-    if (!senderResponse.ok) {
-      showError(transferGeneralError, `Failed to update sender: ${senderResponse.statusText}`);
-      throw new Error('Failed to update sender');
-    }
+    if (!senderResponse.ok) throw new Error('Failed to update sender');
 
-    // Update recipient
     recipient.points += points;
     const recipientResponse = await fetch(`${API_URL}/${recipient.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(recipient),
     });
-    if (!recipientResponse.ok) {
-      showError(transferGeneralError, `Failed to update recipient: ${recipientResponse.statusText}`);
-      throw new Error('Failed to update recipient');
-    }
+    if (!recipientResponse.ok) throw new Error('Failed to update recipient');
 
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     toggleButtonLoading(transferBtn, false, 'Transfer', 'Transferring...');
@@ -358,7 +408,7 @@ transferForm.addEventListener('submit', async (e) => {
     transferForm.reset();
   } catch (error) {
     console.error('Transfer error:', error);
-    showError(transferGeneralError, 'Error transferring points. Please try again.');
+    showError(transferGeneralError, 'Error transferring points. Try again.');
     toggleButtonLoading(transferBtn, false, 'Transfer', 'Transferring...');
   }
 });
@@ -367,10 +417,11 @@ transferForm.addEventListener('submit', async (e) => {
 function logout() {
   currentUser = null;
   localStorage.removeItem('currentUser');
+  localStorage.removeItem('pendingPoints');
   showLogin();
 }
 
-// Check mining status
+// Mining Status
 function getMiningStatus() {
   if (!currentUser || !currentUser.miningStartTime) {
     return { isMining: false, canClaim: false, timeLeft: 0 };
@@ -383,7 +434,7 @@ function getMiningStatus() {
   return { isMining, canClaim, timeLeft };
 }
 
-// Start mining
+// Start Mining
 async function startMining() {
   if (!currentUser) {
     alert('Please log in to start mining!');
@@ -405,9 +456,7 @@ async function startMining() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(currentUser),
     });
-    if (!response.ok) {
-      throw new Error('Failed to update mining status');
-    }
+    if (!response.ok) throw new Error('Failed to update mining status');
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     updatePointsAndTimer();
     alert('Mining started! Come back in 12 hours to claim 50 points.');
@@ -419,7 +468,7 @@ async function startMining() {
   }
 }
 
-// Claim points
+// Claim Points
 async function claimPoints() {
   if (!currentUser) {
     alert('Please log in to claim points!');
@@ -431,16 +480,14 @@ async function claimPoints() {
   }
 
   currentUser.points += POINTS_PER_CYCLE;
-  currentUser.miningStartTime = 0; // Reset for new cycle
+  currentUser.miningStartTime = 0;
   try {
     const response = await fetch(`${API_URL}/${currentUser.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(currentUser),
     });
-    if (!response.ok) {
-      throw new Error('Failed to claim points');
-    }
+    if (!response.ok) throw new Error('Failed to claim points');
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     updatePointsAndTimer();
     updateLeaderboard();
@@ -454,7 +501,7 @@ async function claimPoints() {
   }
 }
 
-// Update points and timer display
+// Update Points and Timer
 function updatePointsAndTimer() {
   if (!currentUser) return;
   pointsDisplay.textContent = currentUser.points;
@@ -484,13 +531,11 @@ function updatePointsAndTimer() {
   }
 }
 
-// Update leaderboard
+// Update Leaderboard
 async function updateLeaderboard() {
   try {
     const response = await fetch(API_URL);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error('Failed to fetch leaderboard');
     const users = await response.json();
     const sortedUsers = users.sort((a, b) => b.points - a.points).slice(0, 5);
     leaderboard.innerHTML = '';
@@ -507,11 +552,3 @@ async function updateLeaderboard() {
 
 // Update timer every second
 setInterval(updatePointsAndTimer, 1000);
-
-// Bootstrap tab initialization
-document.querySelectorAll('#nav-tab .nav-link').forEach(tab => {
-  tab.addEventListener('click', (e) => {
-    e.preventDefault();
-    console.log(`Tab clicked: ${tab.getAttribute('data-bs-target')}`);
-  });
-});

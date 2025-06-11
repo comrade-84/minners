@@ -108,6 +108,18 @@
     .tab-content {
       min-height: calc(100vh - 70px); /* Ensure content fills screen */
     }
+    .form-control {
+      background-color: #c4c4c4;
+      color: #ffffff;
+      border-color: #444;
+    }
+    ::placeholder{
+      color: red;
+    }
+    .form-control:focus {
+      border-color: #00ffcc;
+      box-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+    }
   </style>
 </head>
 <body>
@@ -134,27 +146,26 @@
     </div>
 
     <!-- Sign-Up Form -->
-    <section id="signupSection" class="d-none">
-    <form id="signupForm" class="card p-4 mx-auto" style="max-width: 400px;">
-      <h2 class="text-center mb-4">Sign Up</h2>
-      <div class="mb-3">
-        <label for="signupEmail" class="form-label">Email</label>
-        <input type="email" class="form-control" id="signupEmail" required>
-        <div id="signup-email-error" class="text-danger" style="display: none;"></div>
-      </div>
-      <div class="mb-3">
-        <label for="signupPassword" class="form-label">Password</label>
-        <input type="password" class="form-control" id="signupPassword" required>
-        <div id="signup-password-error" class="text-danger" style="display: none;"></div>
-      </div>
-      <div id="signup-general-error" class="text-danger mb-3" style="display: none;"></div>
-      <div id="signup-verification-success" class="text-success mb-3" style="display: none;"></div>
-      <button type="submit" id="signupBtn" class="btn btn-primary w-100">
-        <span class="button-text">Sign Up</span>
-      </button>
-      <p class="mt-3 text-center">Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
-    </form>
-  </section>
+    <div id="signupSection" class="form-section d-none">
+      <h1 class="neon-text">Sign Up</h1>
+      <form id="signupForm">
+        <div class="mb-3">
+          <input type="email" class="form-control" id="signupEmail" placeholder="Email" required>
+          <div id="signup-email-error" class="error-message"></div>
+        </div>
+        <div class="mb-3">
+          <input type="password" class="form-control" id="signupPassword" placeholder="Password" required>
+          <div id="signup-password-error" class="error-message"></div>
+        </div>
+        <button type="submit" class="btn mine-btn" id="signupBtn">
+          <span class="spinner-border" role="status"></span>
+          <span class="button-text">Sign Up</span>
+        </button>
+        <div id="signup-general-error" class="error-message"></div>
+        <div id="signup-verification-success" class="success-message"></div>
+      </form>
+      <p class="mt-3">Already have an account? <span class="toggle-link" onclick="showLogin()">Login</span></p>
+    </div>
 
     <!-- Game Section (Tabbed) -->
     <div id="gameSection" class="d-none">
@@ -211,10 +222,18 @@
         <!-- Recharge Tab -->
         <div class="tab-pane fade" id="rechargeTab">
           <h1 class="neon-text">Recharge Points</h1>
-          <p>Select a recharge option.</p>
-          <button class="btn mine-btn mb-2">Recharge 100 Points (Placeholder)</button>
-          <button class="btn mine-btn">Recharge 500 Points (Placeholder)</button>
-          <p class="mt-3 text-muted">Note: Recharge functionality is a placeholder.</p>
+          <p>Get 100 points for $1 (₦1500 approx.)</p>
+          <form id="rechargeForm" class="form-section">
+            <div class="mb-3">
+              <input type="number" class="form-control" id="rechargeAmount" value="1" readonly>
+            </div>
+            <button type="submit" class="btn mine-btn" id="rechargeBtn">
+              <span class="spinner-border" role="status"></span>
+              <span class="button-text">Pay Now</span>
+            </button>
+            <div id="recharge-error" class="error-message"></div>
+            <div id="recharge-success" class="success-message"></div>
+          </form>
         </div>
         <!-- Shop Tab -->
         <div class="tab-pane fade" id="shopTab">
@@ -262,15 +281,33 @@
     </div>
   </nav>
 
+  <!-- NeverBounce Widget -->
+  <script type="text/javascript">
+    _NBSettings = {
+      apiKey: 'public_a05d9ae7c6e9c9e968f2d05aaa23a1de',
+      inputFields: ['#signupEmail'],
+      inputLatency: 1000,
+      showValidStatus: true,
+      showStatus: true,
+      softReject: ['disposable'],
+      debug: true,
+      timeout: 5000
+    };
+  </script>
+  <script type="text/javascript" src="https://cdn.neverbounce.com/widget/dist/NeverBounce.js"></script>
+  <!-- Paystack SDK -->
+  <script src="https://js.paystack.co/v2/inline.js"></script>
+  <!-- Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(() => {
+        console.log('Service Worker registered');
+      }).catch(err => console.error('Service Worker error:', err));
+    }
+  </script>
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <!-- App JavaScript -->
   <script src="script.js"></script>
-  <script type="text/javascript">
-	_NBSettings = {
-		apiKey: 'public_a05d9ae7c6e9c9e968f2d05aaa23a1de'
-	};
-</script>
-<script type="text/javascript" src="https://cdn.neverbounce.com/widget/dist/NeverBounce.js"></script>
 </body>
 </html>
