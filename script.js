@@ -1,4 +1,4 @@
-const API_URL = 'https://<your-project-id>.mockapi.io/api/v1/users'; // Replace with your MockAPI.io URL
+const API_URL = 'https://68484c26ec44b9f349406c8c.mockapi.io/mine/users'; // Replace with your MockAPI.io URL
 
 let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 
@@ -18,28 +18,27 @@ const signupEmail = document.getElementById('signupEmail');
 const signupPassword = document.getElementById('signupPassword');
 const transferEmail = document.getElementById('transferEmail');
 const transferPoints = document.getElementById('transferPoints');
-// const transferPoints = document.getElementById('transferPoints');
 const loginEmailError = document.getElementById('login-email-error');
-// const loginPasswordError = loginEmail;
 const loginPasswordError = document.getElementById('login-password-error');
-const signupEmailError = signup.getElementById('signup-email-error');
-const signupPasswordError = signupGeneralError;
+const loginGeneralError = document.getElementById('login-general-error');
+const signupEmailError = document.getElementById('signup-email-error');
+const signupPasswordError = document.getElementById('signup-password-error');
 const signupGeneralError = document.getElementById('signup-general-error');
 const signupVerificationSuccess = document.getElementById('signup-verification-success');
 const transferEmailError = document.getElementById('transfer-email-error');
 const transferPointsError = document.getElementById('transfer-points-error');
 const transferSuccess = document.getElementById('transfer-success');
 const transferGeneralError = document.getElementById('transfer-general-error');
-const loginBtn = document.querySelector('#loginBtn');
-const signupBtn = document.querySelector('#signupBtn');
-const transferBtn = document.querySelector('#transferBtn');
+const loginBtn = document.getElementById('loginBtn');
+const signupBtn = document.getElementById('signupBtn');
+const transferBtn = document.getElementById('transferBtn');
 const pointsDisplay = document.getElementById('points');
 const profilePoints = document.getElementById('profilePoints');
 const pendingPoints = document.getElementById('pendingPoints');
-const userEmail = document.querySelector('#userEmail');
-const timerDisplay = document.querySelector('#timer');
-const mineBtn = document.querySelector('#mineBtn');
-const leaderboard = document.querySelector('#leaderboard');
+const userEmail = document.getElementById('userEmail');
+const timerDisplay = document.getElementById('timer');
+const mineBtn = document.getElementById('mineBtn');
+const leaderboard = document.getElementById('leaderboard');
 
 // Validation Functions
 function validateEmail(email) {
@@ -57,12 +56,12 @@ function validatePoints(points) {
 
 function showError(element, message) {
   element.textContent = message;
-  element.style.display = 'flex';
+  element.style.display = 'block';
 }
 
 function showSuccess(element, message) {
   element.textContent = message;
-  element.style.display = 'flex';
+  element.style.display = 'block';
 }
 
 function clearErrors(...elements) {
@@ -264,7 +263,7 @@ loginForm.addEventListener('submit', async (e) => {
     }
   } catch (error) {
     console.error('Login error:', error);
-    showError(loginGeneralError, 'Error logging in. Please check your network and try again.');
+    showError(loginGeneralError, 'Error logging in. Check your network and try again.');
     toggleButtonLoading(loginBtn, false, 'Login', 'Logging in...');
   }
 });

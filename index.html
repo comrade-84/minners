@@ -134,26 +134,27 @@
     </div>
 
     <!-- Sign-Up Form -->
-    <div id="signupSection" class="form-section d-none">
-      <h1 class="neon-text">Sign Up</h1>
-      <form id="signupForm">
-        <div class="mb-3">
-          <input type="email" class="form-control" id="signupEmail" placeholder="Email" required>
-          <div id="signup-email-error" class="error-message"></div>
-        </div>
-        <div class="mb-3">
-          <input type="password" class="form-control" id="signupPassword" placeholder="Password" required>
-          <div id="signup-password-error" class="error-message"></div>
-        </div>
-        <button type="submit" class="btn mine-btn" id="signupBtn">
-          <span class="spinner-border" role="status"></span>
-          <span class="button-text">Sign Up</span>
-        </button>
-        <div id="signup-general-error" class="error-message"></div>
-        <div id="signup-verification-success" class="success-message"></div>
-      </form>
-      <p class="mt-3">Have an account? <span class="toggle-link" onclick="showLogin()">Login</span></p>
-    </div>
+    <section id="signupSection" class="d-none">
+    <form id="signupForm" class="card p-4 mx-auto" style="max-width: 400px;">
+      <h2 class="text-center mb-4">Sign Up</h2>
+      <div class="mb-3">
+        <label for="signupEmail" class="form-label">Email</label>
+        <input type="email" class="form-control" id="signupEmail" required>
+        <div id="signup-email-error" class="text-danger" style="display: none;"></div>
+      </div>
+      <div class="mb-3">
+        <label for="signupPassword" class="form-label">Password</label>
+        <input type="password" class="form-control" id="signupPassword" required>
+        <div id="signup-password-error" class="text-danger" style="display: none;"></div>
+      </div>
+      <div id="signup-general-error" class="text-danger mb-3" style="display: none;"></div>
+      <div id="signup-verification-success" class="text-success mb-3" style="display: none;"></div>
+      <button type="submit" id="signupBtn" class="btn btn-primary w-100">
+        <span class="button-text">Sign Up</span>
+      </button>
+      <p class="mt-3 text-center">Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+    </form>
+  </section>
 
     <!-- Game Section (Tabbed) -->
     <div id="gameSection" class="d-none">
