@@ -1,12 +1,30 @@
 const API_URL = 'https://68484c26ec44b9f349406c8c.mockapi.io/mine/users';
 const PAYSTACK_PUBLIC_KEY = 'pk_test_4b6f07b034fb6364157ea394e8dbc4af9465b598'; 
+const BACKEND_URL = '/.netlify/functions/send-email'; // Netlify Function endpoint
+const API_KEY = 'Babalawo1234!'; // Match Netlify env variable
 
 let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 
-const POINTS_PER_CYCLE = 50;
-const MINING_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
-const POINTS_PER_DOLLAR = 100;
-const USD_TO_NGN = 1500; // Approx. rate, adjust as needed
+const BASE_MINING_RATE = 50; // Points per 12h without boost
+const MINING_DURATION = 12 * 60 * 60 * 1000; // 12 hours
+const BOOST_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
+const USD_TO_NGN = 1500; // Approx. rate
+const NGN_PER_100_POINTS = 50; // Redemption rate
+const MIN_REDEEM_POINTS = 100;
+const MIN_REDEEM_POINTS_THRESHOLD = 4000; // Threshold for redemption notification
+const ADMIN_EMAIL = 'ridwansaliu84@gmail.com';
+
+// Boost Tiers
+const BOOST_TIERS = {
+  basic: { name: 'Basic Boost', costNGN: 1500, miningRate: 100 }, // 100 points/12h
+  super: { name: 'Super Boost', costNGN: 3000, miningRate: 200 } // 200 points/12h
+};
+
+// Shop Items
+const SHOP_ITEMS = {
+  neonBadge: { name: 'Neon Badge', cost: 100 },
+  starAvatar: { name: 'Star Avatar', cost: 500 }
+};
 
 // DOM Elements
 const loginSection = document.getElementById('loginSection');
@@ -14,15 +32,20 @@ const signupSection = document.getElementById('signupSection');
 const gameSection = document.getElementById('gameSection');
 const loginForm = document.getElementById('loginForm');
 const signupForm = document.getElementById('signupForm');
-const rechargeForm = document.getElementById('rechargeForm');
+const boostForm = document.getElementById('boostForm');
 const transferForm = document.getElementById('transferForm');
+const redeemForm = document.getElementById('redeemForm');
 const loginEmail = document.getElementById('loginEmail');
 const loginPassword = document.getElementById('loginPassword');
 const signupEmail = document.getElementById('signupEmail');
 const signupPassword = document.getElementById('signupPassword');
-const rechargeAmount = document.getElementById('rechargeAmount');
+const boostType = document.getElementById('boostType');
 const transferEmail = document.getElementById('transferEmail');
 const transferPoints = document.getElementById('transferPoints');
+const redeemPoints = document.getElementById('redeemPoints');
+const bankName = document.getElementById('bankName');
+const accountNumber = document.getElementById('accountNumber');
+const accountName = document.getElementById('accountName');
 const loginEmailError = document.getElementById('login-email-error');
 const loginPasswordError = document.getElementById('login-password-error');
 const loginGeneralError = document.getElementById('login-general-error');
@@ -30,16 +53,28 @@ const signupEmailError = document.getElementById('signup-email-error');
 const signupPasswordError = document.getElementById('signup-password-error');
 const signupGeneralError = document.getElementById('signup-general-error');
 const signupVerificationSuccess = document.getElementById('signup-verification-success');
-const rechargeError = document.getElementById('recharge-error');
-const rechargeSuccess = document.getElementById('recharge-success');
+const boostTypeError = document.getElementById('boost-type-error');
+const boostError = document.getElementById('boost-error');
+const boostSuccess = document.getElementById('boost-success');
 const transferEmailError = document.getElementById('transfer-email-error');
 const transferPointsError = document.getElementById('transfer-points-error');
 const transferSuccess = document.getElementById('transfer-success');
-const transferGeneralError = document.getElementById('transfer-general-error');
+const transferGeneralError = document.getElementById('transfer-error');
+const redeemPointsError = document.getElementById('redeem-points-error');
+const bankNameError = document.getElementById('bank-name-error');
+const accountNumberError = document.getElementById('account-number-error');
+const accountNameError = document.getElementById('account-name-error');
+const redeemError = document.getElementById('redeem-error');
+const redeemSuccess = document.getElementById('redeem-success');
+const shopError = document.getElementById('shop-error');
+const shopSuccess = document.getElementById('shop-success');
 const loginBtn = document.getElementById('loginBtn');
 const signupBtn = document.getElementById('signupBtn');
-const rechargeBtn = document.getElementById('rechargeBtn');
+const boostBtn = document.getElementById('boostBtn');
 const transferBtn = document.getElementById('transferBtn');
+const redeemBtn = document.getElementById('redeemBtn');
+const buyNeonBadge = document.getElementById('buyNeonBadge');
+const buyStarAvatar = document.getElementById('buyStarAvatar');
 const pointsDisplay = document.getElementById('points');
 const profilePoints = document.getElementById('profilePoints');
 const pendingPoints = document.getElementById('pendingPoints');
@@ -47,6 +82,9 @@ const userEmail = document.getElementById('userEmail');
 const timerDisplay = document.getElementById('timer');
 const mineBtn = document.getElementById('mineBtn');
 const leaderboard = document.getElementById('leaderboard');
+const purchasedItems = document.getElementById('purchasedItems');
+const redemptionHistory = document.getElementById('redemptionHistory');
+const boostStatus = document.getElementById('boostStatus');
 
 // Validation Functions
 function validateEmail(email) {
@@ -59,7 +97,24 @@ function validatePassword(password) {
 }
 
 function validatePoints(points) {
-  return points > 0 && Number.isInteger(Number(points));
+  return points >= MIN_REDEEM_POINTS && Number.isInteger(Number(points)) && points % 100 === 0;
+}
+
+function validateBankName(name) {
+  return name.trim().length > 0;
+}
+
+function validateAccountNumber(number) {
+  const re = /^\d{10}$/;
+  return re.test(number);
+}
+
+function validateAccountName(name) {
+  return name.trim().length > 0;
+}
+
+function validateBoostType(type) {
+  return ['basic', 'super'].includes(type);
 }
 
 function showError(element, message) {
@@ -94,30 +149,35 @@ function toggleButtonLoading(button, isLoading, defaultText, loadingText) {
 
 // Toggle Sections
 function showLogin() {
-  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, rechargeError, rechargeSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
+  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, boostError, boostSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess, shopError, shopSuccess, redeemPointsError, bankNameError, accountNumberError, accountNameError, redeemError, redeemSuccess, boostTypeError);
   loginSection.classList.remove('d-none');
   signupSection.classList.add('d-none');
   gameSection.classList.add('d-none');
 }
 
 function showSignup() {
-  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, rechargeError, rechargeSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
+  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, boostError, boostSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess, shopError, shopSuccess, redeemPointsError, bankNameError, accountNumberError, accountNameError, redeemError, redeemSuccess, boostTypeError);
   signupSection.classList.remove('d-none');
   loginSection.classList.add('d-none');
   gameSection.classList.add('d-none');
 }
 
 function showGame() {
-  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, rechargeError, rechargeSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess);
+  clearErrors(loginEmailError, loginPasswordError, loginGeneralError, signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess, boostError, boostSuccess, transferEmailError, transferPointsError, transferGeneralError, transferSuccess, shopError, shopSuccess, redeemPointsError, bankNameError, accountNumberError, accountNameError, redeemError, redeemSuccess, boostTypeError);
   gameSection.classList.remove('d-none');
   loginSection.classList.add('d-none');
   signupSection.classList.add('d-none');
   updatePointsAndTimer();
   updateLeaderboard();
+  updatePurchasedItems();
+  updateRedemptionHistory();
+  updateBoostStatus();
   if (currentUser) {
     userEmail.textContent = currentUser.email;
     profilePoints.textContent = currentUser.points;
-    syncPendingPoints();
+    syncPendingBoosts();
+    syncPendingPurchases();
+    syncPendingRedemptions();
   }
   document.querySelector('#profile-tab').click();
 }
@@ -127,7 +187,7 @@ if (currentUser) {
   showGame();
 }
 
-// Sign-Up Handler (Bypassed NeverBounce)
+// Sign-Up Handler
 signupForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   clearErrors(signupEmailError, signupPasswordError, signupGeneralError, signupVerificationSuccess);
@@ -170,11 +230,20 @@ signupForm.addEventListener('submit', async (e) => {
     }
 
     // Create user
-    const newUser = { email, password, points: 0, miningStartTime: 0 };
+    const newUser = {
+      email,
+      password,
+      points: 0,
+      miningStartTime: 0,
+      miningRate: BASE_MINING_RATE,
+      boostExpiry: 0,
+      items: [],
+      redemptions: []
+    };
     const createResponse = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newUser),
+      body: JSON.stringify(newUser)
     });
     if (!createResponse.ok) throw new Error('Failed to create user');
     const user = await createResponse.json();
@@ -187,7 +256,15 @@ signupForm.addEventListener('submit', async (e) => {
     console.error('Signup error:', error);
     localStorage.setItem('points', 0);
     localStorage.setItem('miningStartTime', 0);
-    currentUser = { email, points: 0, miningStartTime: 0 };
+    currentUser = {
+      email,
+      points: 0,
+      miningStartTime: 0,
+      miningRate: BASE_MINING_RATE,
+      boostExpiry: 0,
+      items: [],
+      redemptions: []
+    };
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     toggleButtonLoading(signupBtn, false, 'Sign Up', 'Signing up...');
     showError(signupGeneralError, 'Error signing up. Using local fallback.');
@@ -242,96 +319,398 @@ loginForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Recharge Handler
-rechargeForm.addEventListener('submit', async (e) => {
+// Boost Handler
+boostForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  clearErrors(rechargeError, rechargeSuccess);
-  toggleButtonLoading(rechargeBtn, true, 'Pay Now', 'Processing...');
+  clearErrors(boostTypeError, boostError, boostSuccess);
+  toggleButtonLoading(boostBtn, true, 'Buy Boost', 'Processing...');
 
   if (!currentUser) {
-    showError(rechargeError, 'Please log in to recharge.');
-    toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+    showError(boostError, 'Please log in to buy a boost.');
+    toggleButtonLoading(boostBtn, false, 'Buy Boost', 'Processing...');
     return;
   }
 
-  const amountUSD = parseFloat(rechargeAmount.value);
-  if (!amountUSD || amountUSD !== 1) {
-    showError(rechargeError, 'Amount must be $1.');
-    toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+  const type = boostType.value;
+  if (!type) {
+    showError(boostTypeError, 'Please select a boost type');
+    toggleButtonLoading(boostBtn, false, 'Buy Boost', 'Processing...');
+    return;
+  }
+  if (!validateBoostType(type)) {
+    showError(boostTypeError, 'Invalid boost type');
+    toggleButtonLoading(boostBtn, false, 'Buy Boost', 'Processing...');
     return;
   }
 
-  const amountNGN = amountUSD * USD_TO_NGN * 100; // Paystack uses kobo
+  const boost = BOOST_TIERS[type];
+  const amountNGN = boost.costNGN * 100; // Paystack uses kobo
   const email = currentUser.email;
 
   try {
     const handler = PaystackPop.setup({
       key: PAYSTACK_PUBLIC_KEY,
-      email: email,
+      email,
       amount: amountNGN,
       currency: 'NGN',
       ref: `VPMG_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       onClose: () => {
-        showError(rechargeError, 'Payment cancelled.');
-        toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+        showError(boostError, 'Payment cancelled.');
+        toggleButtonLoading(boostBtn, false, 'Buy Boost', 'Processing...');
       },
       callback: async (response) => {
         try {
-          // Verify payment (optional for testing)
-          // In production, use server-side verification with sk_test_xxx
-          currentUser.points += amountUSD * POINTS_PER_DOLLAR;
+          const now = Date.now();
+          currentUser.miningRate = boost.miningRate;
+          currentUser.boostExpiry = currentUser.boostExpiry > now ?
+            currentUser.boostExpiry + BOOST_DURATION : now + BOOST_DURATION;
           const updateResponse = await fetch(`${API_URL}/${currentUser.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(currentUser),
+            body: JSON.stringify(currentUser)
           });
-          if (!updateResponse.ok) throw new Error('Failed to update points.');
+          if (!updateResponse.ok) throw new Error('Failed to apply boost');
           localStorage.setItem('currentUser', JSON.stringify(currentUser));
           updatePointsAndTimer();
-          showSuccess(rechargeSuccess, `Recharged ${amountUSD * POINTS_PER_DOLLAR} points!`);
-          toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
-          rechargeForm.reset();
+          updateBoostStatus();
+          showSuccess(boostSuccess, `Purchased ${boost.name}! Mining at ${boost.miningRate} points/12h.`);
+          toggleButtonLoading(boostBtn, false, 'Buy Boost', 'Processing...');
+          boostForm.reset();
         } catch (error) {
-          console.error('Recharge error:', error);
-          showError(rechargeError, 'Error processing payment. Points not credited.');
-          toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
-          localStorage.setItem('pendingPoints', JSON.stringify({
+          console.error('Boost error:', error);
+          showError(boostError, 'Error applying boost. Try again.');
+          toggleButtonLoading(boostBtn, false, 'Buy Boost', 'Processing...');
+          localStorage.setItem('pendingBoosts', JSON.stringify({
             email: currentUser.email,
-            points: amountUSD * POINTS_PER_DOLLAR,
-            timestamp: Date.now(),
+            boostType: type,
+            timestamp: Date.now()
           }));
         }
-      },
+      }
     });
     handler.openIframe();
   } catch (error) {
     console.error('Payment init error:', error);
-    showError(rechargeError, 'Error initiating payment. Try again.');
-    toggleButtonLoading(rechargeBtn, false, 'Pay Now', 'Processing...');
+    showError(boostError, 'Error initiating payment. Try again.');
+    toggleButtonLoading(boostBtn, false, 'Buy Boost', 'Processing...');
   }
 });
 
-// Sync Pending Points
-async function syncPendingPoints() {
-  const pending = JSON.parse(localStorage.getItem('pendingPoints'));
+// Sync Pending Boosts
+async function syncPendingBoosts() {
+  const pending = JSON.parse(localStorage.getItem('pendingBoosts'));
   if (!pending || !currentUser || pending.email !== currentUser.email) return;
 
   try {
-    currentUser.points += pending.points;
+    const boost = BOOST_TIERS[pending.boostType];
+    const now = Date.now();
+    currentUser.miningRate = boost.miningRate;
+    currentUser.boostExpiry = currentUser.boostExpiry > now ?
+      currentUser.boostExpiry + BOOST_DURATION : now + BOOST_DURATION;
     const response = await fetch(`${API_URL}/${currentUser.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentUser),
+      body: JSON.stringify(currentUser)
     });
     if (response.ok) {
-      localStorage.removeItem('pendingPoints');
+      localStorage.removeItem('pendingBoosts');
       updatePointsAndTimer();
-      showSuccess(rechargeSuccess, `Synced ${pending.points} pending points!`);
+      updateBoostStatus();
+      showSuccess(boostSuccess, `Synced ${boost.name}!`);
     }
   } catch (error) {
-    console.error('Sync error:', error);
+    console.error('Sync boost error:', error);
   }
 }
+
+// Update Boost Status
+function updateBoostStatus() {
+  const now = Date.now();
+  if (!currentUser || !currentUser.boostExpiry || currentUser.boostExpiry <= now) {
+    currentUser.miningRate = BASE_MINING_RATE;
+    currentUser.boostExpiry = 0;
+    boostStatus.textContent = 'No active boost.';
+    return;
+  }
+  const expiryDate = new Date(currentUser.boostExpiry).toLocaleString();
+  boostStatus.textContent = `Active: ${currentUser.miningRate} points/12h (expires ${expiryDate})`;
+}
+
+// Notify Admin of Large Redemption
+async function notifyAdminOfRedemption(email, points, amountNGN, bankName, accountNumber, accountName) {
+  const notification = {
+    to: ADMIN_EMAIL,
+    subject: 'Large Redemption Request',
+    body: `
+      User Redemption Notification
+      User Email: ${email}
+      Points to Redeem: ${points}
+      Amount (NGN): ₦${amountNGN}
+      Bank Name: ${bankName}
+      Account Number: ${accountNumber}
+      Account Name: ${accountName}
+      Timestamp: ${new Date().toLocaleString()}
+    `,
+    timestamp: Date.now()
+  };
+
+  try {
+    const response = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY
+      },
+      body: JSON.stringify(notification)
+    });
+    if (!response.ok) throw new Error('Failed to send email');
+    console.log('Email sent:', notification);
+  } catch (error) {
+    console.error('Email error:', error);
+    // Fallback to localStorage
+    const notifications = JSON.parse(localStorage.getItem('adminNotifications')) || [];
+    notifications.push(notification);
+    localStorage.setItem('adminNotifications', JSON.stringify(notifications));
+  }
+}
+
+// Redeem Points Handler
+redeemForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearErrors(redeemPointsError, bankNameError, accountNumberError, accountNameError, redeemError, redeemSuccess);
+  toggleButtonLoading(redeemBtn, true, 'Redeem', 'Processing...');
+
+  if (!currentUser) {
+    showError(redeemError, 'Please log in to redeem.');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+
+  const points = parseInt(redeemPoints.value.trim());
+  const bank = bankName.value.trim();
+  const accountNum = accountNumber.value.trim();
+  const accName = accountName.value.trim();
+
+  if (!points) {
+    showError(redeemPointsError, 'Points are required');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (!validatePoints(points)) {
+    showError(redeemPointsError, 'Points must be at least 100 and a multiple of 100');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (points > currentUser.points) {
+    showError(redeemPointsError, 'Insufficient points');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (points >= MIN_REDEEM_POINTS_THRESHOLD) {
+    const amountNGN = (points / 100) * NGN_PER_100_POINTS;
+    await notifyAdminOfRedemption(currentUser.email, points, amountNGN, bank, accountNum, accName);
+    showSuccess(redeemSuccess, 'Admin notified for large redemption request.');
+  }
+  if (!bank) {
+    showError(bankNameError, 'Bank name is required');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (!validateBankName(bank)) {
+    showError(bankNameError, 'Please enter a valid bank name');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (!accountNum) {
+    showError(accountNumberError, 'Account number is required');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (!validateAccountNumber(accountNum)) {
+    showError(accountNumberError, 'Account number must be 10 digits');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (!accName) {
+    showError(accountNameError, 'Account name is required');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+  if (!validateAccountName(accName)) {
+    showError(accountNameError, 'Please enter a valid account name');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    return;
+  }
+
+  const amountNGN = (points / 100) * NGN_PER_100_POINTS;
+  const redemption = {
+    points,
+    amountNGN,
+    bankName: bank,
+    accountNumber: accountNum,
+    accountName: accName,
+    timestamp: new Date().toISOString(),
+    status: 'pending'
+  };
+
+  try {
+    currentUser.points -= points;
+    if (!currentUser.redemptions) currentUser.redemptions = [];
+    currentUser.redemptions.push(redemption);
+    const response = await fetch(`${API_URL}/${currentUser.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentUser)
+    });
+    if (!response.ok) throw new Error('Failed to process redemption');
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    updatePointsAndTimer();
+    updateRedemptionHistory();
+    showSuccess(redeemSuccess, `Redemption request for ₦${amountNGN} submitted! Awaiting processing.`);
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    redeemForm.reset();
+    console.log('Redemption details:', redemption);
+    alert('Redemption recorded. In production, this would trigger a bank transfer.');
+  } catch (error) {
+    console.error('Redemption error:', error);
+    showError(redeemError, 'Error processing redemption. Try again.');
+    toggleButtonLoading(redeemBtn, false, 'Redeem', 'Processing...');
+    localStorage.setItem('pendingRedemptions', JSON.stringify({
+      email: currentUser.email,
+      redemption,
+      timestamp: Date.now()
+    }));
+  }
+});
+
+// Sync Pending Redemptions
+async function syncPendingRedemptions() {
+  const pending = JSON.parse(localStorage.getItem('pendingRedemptions'));
+  if (!pending || !currentUser || pending.email !== currentUser.email) return;
+
+  try {
+    currentUser.points -= pending.redemption.points;
+    if (!currentUser.redemptions) currentUser.redemptions = [];
+    currentUser.redemptions.push(pending.redemption);
+    const response = await fetch(`${API_URL}/${currentUser.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentUser)
+    });
+    if (response.ok) {
+      localStorage.removeItem('pendingRedemptions');
+      updatePointsAndTimer();
+      updateRedemptionHistory();
+      showSuccess(redeemSuccess, `Synced redemption for ₦${pending.redemption.amountNGN}!`);
+    }
+  } catch (error) {
+    console.error('Sync redemption error:', error);
+  }
+}
+
+// Update Redemption History
+function updateRedemptionHistory() {
+  if (!currentUser || !currentUser.redemptions || currentUser.redemptions.length === 0) {
+    redemptionHistory.textContent = 'No redemptions yet.';
+    return;
+  }
+  redemptionHistory.innerHTML = currentUser.redemptions.map(r => `
+    <div>₦${r.amountNGN} to ${r.bankName} (${r.accountNumber}) on ${new Date(r.timestamp).toLocaleString()} - ${r.status}</div>
+  `).join('');
+}
+
+// Purchase Item Handler
+async function purchaseItem(itemKey) {
+  if (!currentUser) {
+    showError(shopError, 'Please log in to purchase.');
+    return;
+  }
+
+  const item = SHOP_ITEMS[itemKey];
+  const button = itemKey === 'neonBadge' ? buyNeonBadge : buyStarAvatar;
+
+  clearErrors(shopError, shopSuccess);
+  toggleButtonLoading(button, true, 'Buy', 'Buying...');
+
+  if (currentUser.points < item.cost) {
+    showError(shopError, `Insufficient points. Need ${item.cost} points.`);
+    toggleButtonLoading(button, false, 'Buy', 'Buying...');
+    return;
+  }
+
+  if (currentUser.items && currentUser.items.includes(item.name)) {
+    showError(shopError, `You already own ${item.name}.`);
+    toggleButtonLoading(button, false, 'Buy', 'Buying...');
+    return;
+  }
+
+  try {
+    currentUser.points -= item.cost;
+    if (!currentUser.items) currentUser.items = [];
+    currentUser.items.push(item.name);
+    const response = await fetch(`${API_URL}/${currentUser.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentUser)
+    });
+    if (!response.ok) throw new Error('Failed to purchase item');
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    updatePointsAndTimer();
+    updatePurchasedItems();
+    showSuccess(shopSuccess, `Purchased ${item.name} for ${item.cost} points!`);
+    toggleButtonLoading(button, false, 'Buy', 'Buying...');
+  } catch (error) {
+    console.error('Purchase error:', error);
+    showError(shopError, 'Error purchasing item. Try again.');
+    toggleButtonLoading(button, false, 'Buy', 'Buying...');
+    localStorage.setItem('pendingPurchases', JSON.stringify({
+      email: currentUser.email,
+      item: item.name,
+      cost: item.cost,
+      timestamp: Date.now()
+    }));
+  }
+}
+
+// Sync Pending Purchases
+async function syncPendingPurchases() {
+  const pending = JSON.parse(localStorage.getItem('pendingPurchases'));
+  if (!pending || !currentUser || pending.email !== currentUser.email) return;
+
+  try {
+    currentUser.points -= pending.cost;
+    if (!currentUser.items) currentUser.items = [];
+    if (!currentUser.items.includes(pending.item)) {
+      currentUser.items.push(pending.item);
+    }
+    const response = await fetch(`${API_URL}/${currentUser.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentUser)
+    });
+    if (response.ok) {
+      localStorage.removeItem('pendingPurchases');
+      updatePointsAndTimer();
+      updatePurchasedItems();
+      showSuccess(shopSuccess, `Synced purchase: ${pending.item}!`);
+    }
+  } catch (error) {
+    console.error('Sync purchase error:', error);
+  }
+}
+
+// Update Purchased Items
+function updatePurchasedItems() {
+  if (!currentUser || !currentUser.items || currentUser.items.length === 0) {
+    purchasedItems.textContent = 'No items purchased yet.';
+    return;
+  }
+  purchasedItems.innerHTML = currentUser.items.map(item => `<div>${item}</div>`).join('');
+}
+
+// Shop Event Listeners
+buyNeonBadge.addEventListener('click', () => purchaseItem('neonBadge'));
+buyStarAvatar.addEventListener('click', () => purchaseItem('starAvatar'));
 
 // Transfer Points Handler
 transferForm.addEventListener('submit', async (e) => {
@@ -362,7 +741,7 @@ transferForm.addEventListener('submit', async (e) => {
     toggleButtonLoading(transferBtn, false, 'Transfer', 'Transferring...');
     return;
   }
-  if (!validatePoints(points)) {
+  if (points <= 0 || !Number.isInteger(points)) {
     showError(transferPointsError, 'Points must be a positive integer');
     toggleButtonLoading(transferBtn, false, 'Transfer', 'Transferring...');
     return;
@@ -388,15 +767,13 @@ transferForm.addEventListener('submit', async (e) => {
     const senderResponse = await fetch(`${API_URL}/${currentUser.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentUser),
+      body: JSON.stringify(currentUser)
     });
-    if (!senderResponse.ok) throw new Error('Failed to update sender');
-
     recipient.points += points;
     const recipientResponse = await fetch(`${API_URL}/${recipient.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(recipient),
+      body: JSON.stringify(recipient)
     });
     if (!recipientResponse.ok) throw new Error('Failed to update recipient');
 
@@ -417,7 +794,9 @@ transferForm.addEventListener('submit', async (e) => {
 function logout() {
   currentUser = null;
   localStorage.removeItem('currentUser');
-  localStorage.removeItem('pendingPoints');
+  localStorage.removeItem('pendingBoosts');
+  localStorage.removeItem('pendingPurchases');
+  localStorage.removeItem('pendingRedemptions');
   showLogin();
 }
 
@@ -441,7 +820,7 @@ async function startMining() {
     return;
   }
   if (getMiningStatus().isMining) {
-    alert('Mining already in progress!');
+    alert('Mining is already in progress!');
     return;
   }
   if (getMiningStatus().canClaim) {
@@ -459,7 +838,7 @@ async function startMining() {
     if (!response.ok) throw new Error('Failed to update mining status');
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     updatePointsAndTimer();
-    alert('Mining started! Come back in 12 hours to claim 50 points.');
+    alert('Mining started successfully! Come back in 12 hours to claim points.');
   } catch (error) {
     console.error('Start mining error:', error);
     localStorage.setItem('miningStartTime', currentUser.miningStartTime);
@@ -479,19 +858,20 @@ async function claimPoints() {
     return;
   }
 
-  currentUser.points += POINTS_PER_CYCLE;
+  const miningRate = currentUser.miningRate || BASE_MINING_RATE;
+  currentUser.points += miningRate;
   currentUser.miningStartTime = 0;
   try {
     const response = await fetch(`${API_URL}/${currentUser.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentUser),
+      body: JSON.stringify(currentUser)
     });
     if (!response.ok) throw new Error('Failed to claim points');
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     updatePointsAndTimer();
     updateLeaderboard();
-    alert(`Claimed ${POINTS_PER_CYCLE} points! You can start mining again.`);
+    alert(`Claimed ${miningRate} points! You can start mining again.`);
   } catch (error) {
     console.error('Claim points error:', error);
     localStorage.setItem('points', currentUser.points);
@@ -506,6 +886,13 @@ function updatePointsAndTimer() {
   if (!currentUser) return;
   pointsDisplay.textContent = currentUser.points;
   profilePoints.textContent = currentUser.points;
+  const now = Date.now();
+  if (currentUser.boostExpiry && currentUser.boostExpiry <= now) {
+    currentUser.miningRate = BASE_MINING_RATE;
+    currentUser.boostExpiry = 0;
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  }
+  const miningRate = currentUser.miningRate || BASE_MINING_RATE;
   const { isMining, canClaim, timeLeft } = getMiningStatus();
 
   if (isMining) {
@@ -515,13 +902,13 @@ function updatePointsAndTimer() {
     const minutes = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
     const seconds = Math.floor((timeLeft % (60 * 1000)) / 1000);
     timerDisplay.textContent = `Time left: ${hours}h ${minutes}m ${seconds}s`;
-    pendingPoints.textContent = POINTS_PER_CYCLE;
+    pendingPoints.textContent = miningRate;
   } else if (canClaim) {
-    mineBtn.textContent = 'Claim Points';
+    mineBtn.textContent = 'Claim Reward';
     mineBtn.disabled = false;
     mineBtn.onclick = claimPoints;
     timerDisplay.textContent = 'Ready to claim!';
-    pendingPoints.textContent = POINTS_PER_CYCLE;
+    pendingPoints.textContent = miningRate;
   } else {
     mineBtn.textContent = 'Start Mining';
     mineBtn.disabled = false;

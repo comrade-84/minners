@@ -13,7 +13,7 @@
       background-color: #141414;
       color: #ffffff;
       font-family: 'Arial', sans-serif;
-      padding-bottom: 70px; /* Space for fixed navbar */
+      padding-bottom: 70px;
     }
     .container {
       max-width: 600px;
@@ -53,7 +53,7 @@
       display: inline-block;
     }
     .mine-btn.loading .button-text {
-      padding-left: 1.5rem; /* Space for spinner */
+      padding-left: 1.5rem;
     }
     .points, .timer {
       font-size: 1.5rem;
@@ -106,19 +106,26 @@
       border-radius: 5px;
     }
     .tab-content {
-      min-height: calc(100vh - 70px); /* Ensure content fills screen */
+      min-height: calc(100vh - 70px);
     }
     .form-control {
-      background-color: #c4c4c4;
-      color: #ffffff;
+      background-color: #d1d1d1;
+      color: #141414;
       border-color: #444;
-    }
-    ::placeholder{
-      color: red;
     }
     .form-control:focus {
       border-color: #00ffcc;
       box-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+    }
+    .form-control::placeholder {
+      color: #555;
+      opacity: 1;
+    }
+    .purchased-items, .redemption-history, .boost-status {
+      background-color: #1c1c1c;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
     }
   </style>
 </head>
@@ -175,7 +182,19 @@
           <h1 class="neon-text">Profile</h1>
           <div class="points">Email: <span id="userEmail"></span></div>
           <div class="points">Points: <span id="profilePoints">0</span></div>
+          <div class="boost-status">
+            <h2 class="neon-text">Mining Boost</h2>
+            <div id="boostStatus">No active boost.</div>
+          </div>
           <button class="btn btn-secondary mt-3" onclick="logout()">Logout</button>
+          <div class="purchased-items">
+            <h2 class="neon-text">Purchased Items</h2>
+            <div id="purchasedItems">No items purchased yet.</div>
+          </div>
+          <div class="redemption-history">
+            <h2 class="neon-text">Redemption History</h2>
+            <div id="redemptionHistory">No redemptions yet.</div>
+          </div>
           <h2 class="neon-text mt-5">Leaderboard</h2>
           <div class="leaderboard">
             <table class="table table-dark">
@@ -216,23 +235,28 @@
               <span class="button-text">Transfer</span>
             </button>
             <div id="transfer-success" class="success-message"></div>
-            <div id="transfer-general-error" class="error-message"></div>
+            <div id="transfer-error" class="error-message"></div>
           </form>
         </div>
-        <!-- Recharge Tab -->
-        <div class="tab-pane fade" id="rechargeTab">
-          <h1 class="neon-text">Recharge Points</h1>
-          <p>Get 100 points for $1 (₦1500 approx.)</p>
-          <form id="rechargeForm" class="form-section">
+        <!-- Boost Tab -->
+        <div class="tab-pane fade" id="boostTab">
+          <h1 class="neon-text">Buy Mining Boost</h1>
+          <p>Increase your mining rate for 30 days.</p>
+          <form id="boostForm" class="form-section">
             <div class="mb-3">
-              <input type="number" class="form-control" id="rechargeAmount" value="1" readonly>
+              <select class="form-control" id="boostType" required>
+                <option value="" disabled selected>Select Boost</option>
+                <option value="basic">Basic Boost (₦1500 - 100 points/12h)</option>
+                <option value="super">Super Boost (₦3000 - 200 points/12h)</option>
+              </select>
+              <div id="boost-type-error" class="error-message"></div>
             </div>
-            <button type="submit" class="btn mine-btn" id="rechargeBtn">
+            <button type="submit" class="btn mine-btn" id="boostBtn">
               <span class="spinner-border" role="status"></span>
-              <span class="button-text">Pay Now</span>
+              <span class="button-text">Buy Boost</span>
             </button>
-            <div id="recharge-error" class="error-message"></div>
-            <div id="recharge-success" class="success-message"></div>
+            <div id="boost-error" class="error-message"></div>
+            <div id="boost-success" class="success-message"></div>
           </form>
         </div>
         <!-- Shop Tab -->
@@ -243,16 +267,53 @@
             <div class="card-body">
               <h5 class="card-title">Neon Badge</h5>
               <p class="card-text">Cost: 100 points</p>
-              <button class="btn mine-btn">Buy (Placeholder)</button>
+              <button class="btn mine-btn" id="buyNeonBadge">
+                <span class="spinner-border" role="status"></span>
+                <span class="button-text">Buy</span>
+              </button>
             </div>
           </div>
           <div class="card bg-dark text-white">
             <div class="card-body">
               <h5 class="card-title">Star Avatar</h5>
               <p class="card-text">Cost: 500 points</p>
-              <button class="btn mine-btn">Buy (Placeholder)</button>
+              <button class="btn mine-btn" id="buyStarAvatar">
+                <span class="spinner-border" role="status"></span>
+                <span class="button-text">Buy</span>
+              </button>
             </div>
           </div>
+          <div id="shop-error" class="error-message"></div>
+          <div id="shop-success" class="success-message"></div>
+        </div>
+        <!-- Redeem Tab -->
+        <div class="tab-pane fade" id="redeemTab">
+          <h1 class="neon-text">Redeem Points</h1>
+          <p>Redeem points to your bank at ₦50 = 100 points.</p>
+          <form id="redeemForm" class="form-section">
+            <div class="mb-3">
+              <input type="number" min="100" step="100" class="form-control" id="redeemPoints" placeholder="Points to Redeem (e.g., 100)" required>
+              <div id="redeem-points-error" class="error-message"></div>
+            </div>
+            <div class="mb-3">
+              <input type="text" class="form-control" id="bankName" placeholder="Bank Name (e.g., GTBank)" required>
+              <div id="bank-name-error" class="error-message"></div>
+            </div>
+            <div class="mb-3">
+              <input type="text" class="form-control" id="accountNumber" placeholder="Account Number (10 digits)" required>
+              <div id="account-number-error" class="error-message"></div>
+            </div>
+            <div class="mb-3">
+              <input type="text" class="form-control" id="accountName" placeholder="Account Name" required>
+              <div id="account-name-error" class="error-message"></div>
+            </div>
+            <button type="submit" class="btn mine-btn" id="redeemBtn">
+              <span class="spinner-border" role="status"></span>
+              <span class="button-text">Redeem</span>
+            </button>
+            <div id="redeem-error" class="error-message"></div>
+            <div id="redeem-success" class="success-message"></div>
+          </form>
         </div>
       </div>
     </div>
@@ -272,29 +333,18 @@
           <button class="nav-link" id="transfer-tab" data-bs-toggle="tab" data-bs-target="#transferTab" type="button" role="tab" aria-controls="transfer-tab" aria-selected="false"><i class="bi bi-arrow-left-right"></i> Transfer</button>
         </li>
         <li class="nav-item">
-          <button class="nav-link" id="recharge-tab" data-bs-toggle="tab" data-bs-target="#rechargeTab" type="button" role="tab" aria-controls="recharge-tab" aria-selected="false"><i class="bi bi-battery-charging"></i> Recharge</button>
+          <button class="nav-link" id="boost-tab" data-bs-toggle="tab" data-bs-target="#boostTab" type="button" role="tab" aria-controls="boost-tab" aria-selected="false"><i class="bi bi-rocket-takeoff"></i> Boost</button>
         </li>
         <li class="nav-item">
           <button class="nav-link" id="shop-tab" data-bs-toggle="tab" data-bs-target="#shopTab" type="button" role="tab" aria-controls="shop-tab-pane" aria-selected="false"><i class="bi bi-shop"></i> Shop</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="redeem-tab" data-bs-toggle="tab" data-bs-target="#redeemTab" type="button" role="tab" aria-controls="redeem-tab-pane" aria-selected="false"><i class="bi bi-cash"></i> Redeem</button>
         </li>
       </ul>
     </div>
   </nav>
 
-  <!-- NeverBounce Widget -->
-  <script type="text/javascript">
-    _NBSettings = {
-      apiKey: 'public_a05d9ae7c6e9c9e968f2d05aaa23a1de',
-      inputFields: ['#signupEmail'],
-      inputLatency: 1000,
-      showValidStatus: true,
-      showStatus: true,
-      softReject: ['disposable'],
-      debug: true,
-      timeout: 5000
-    };
-  </script>
-  <script type="text/javascript" src="https://cdn.neverbounce.com/widget/dist/NeverBounce.js"></script>
   <!-- Paystack SDK -->
   <script src="https://js.paystack.co/v2/inline.js"></script>
   <!-- Service Worker -->

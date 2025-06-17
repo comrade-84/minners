@@ -1,0 +1,9 @@
+[build]
+  publish = "."
+  functions = "functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = { "not": ["/.netlify/functions/*", "/admin.html"] }
